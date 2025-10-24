@@ -8,7 +8,7 @@ namespace LabyrinthMover.UI
     public class BootstrapMenu : MonoBehaviour
     {
         [SerializeField]
-        private string levelSceneName = "Level_001";
+        private string levelSceneName = "Level_TestMechanics";
 
         [SerializeField]
         private Button playButton;
