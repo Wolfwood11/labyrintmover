@@ -2,6 +2,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+using UnityEngine.InputSystem.UI;
+#endif
 
 namespace LabyrinthMover.UI
 {
@@ -69,7 +72,11 @@ namespace LabyrinthMover.UI
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+                es.AddComponent<InputSystemUIInputModule>();
+#else
                 es.AddComponent<StandaloneInputModule>();
+#endif
             }
 
             var buttonGo = new GameObject("PlayButton", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
