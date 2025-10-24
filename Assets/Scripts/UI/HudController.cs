@@ -128,7 +128,7 @@ namespace LabyrinthMover.UI
             rect.sizeDelta = new Vector2(260f, 40f);
 
             var text = go.GetComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.text = string.Empty;
             text.fontSize = 24;
             text.alignment = TextAnchor.MiddleLeft;

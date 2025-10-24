@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using LabyrinthMover.Core;
 using LabyrinthMover.Gameplay;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace LabyrinthMover.UI
 {
@@ -56,54 +57,72 @@ namespace LabyrinthMover.UI
 
         private void Update()
         {
-            if (Input.touchSupported)
+            var touchscreen = Touchscreen.current;
+            if (touchscreen != null)
             {
-                HandleTouchInput();
+                var touch = touchscreen.primaryTouch;
+                if (touch.press.wasPressedThisFrame || touch.press.isPressed || touch.press.wasReleasedThisFrame)
+                {
+                    HandleTouchInput();
+                    return;
+                }
             }
-            else
-            {
-                HandleMouseInput();
-            }
+
+            HandleMouseInput();
         }
 
         private void HandleMouseInput()
         {
-            if (Input.GetMouseButtonDown(0))
+            var mouse = Mouse.current;
+            if (mouse == null)
             {
-                OnPointerDown(Input.mousePosition);
+                return;
             }
 
-            if (Input.GetMouseButton(0))
+            Vector2 position = mouse.position.ReadValue();
+
+            if (mouse.leftButton.wasPressedThisFrame)
             {
-                OnPointerMove(Input.mousePosition);
+                OnPointerDown(position);
             }
 
-            if (Input.GetMouseButtonUp(0))
+            if (mouse.leftButton.isPressed)
             {
-                OnPointerUp(Input.mousePosition);
+                OnPointerMove(position);
+            }
+
+            if (mouse.leftButton.wasReleasedThisFrame)
+            {
+                OnPointerUp(position);
             }
         }
 
         private void HandleTouchInput()
         {
-            if (Input.touchCount == 0)
+            var touchscreen = Touchscreen.current;
+            if (touchscreen == null)
             {
                 return;
             }
 
-            var touch = Input.GetTouch(0);
-            switch (touch.phase)
+            var touch = touchscreen.primaryTouch;
+            var phase = touch.phase.ReadValue();
+            Vector2 position = touch.position.ReadValue();
+
+            switch (phase)
             {
-                case TouchPhase.Began:
-                    OnPointerDown(touch.position);
+                case UnityEngine.InputSystem.TouchPhase.None:
                     break;
-                case TouchPhase.Moved:
-                case TouchPhase.Stationary:
-                    OnPointerMove(touch.position);
+                case UnityEngine.InputSystem.TouchPhase.Began:
+                    OnPointerDown(position);
                     break;
-                case TouchPhase.Ended:
-                case TouchPhase.Canceled:
-                    OnPointerUp(touch.position);
+                case UnityEngine.InputSystem.TouchPhase.Moved:
+                case UnityEngine.InputSystem.TouchPhase.Stationary:
+                    OnPointerMove(position);
+                    break;
+                case UnityEngine.InputSystem.TouchPhase.Ended:
+                case UnityEngine.InputSystem.TouchPhase.Canceled:
+                    OnPointerUp(position);
                     break;
             }
         }

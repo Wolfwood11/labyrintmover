@@ -99,13 +99,29 @@ namespace LabyrinthMover.Gameplay
         {
             Vector2Int startCell = FindMarker("MarkerStart");
 
-            if (characterPrefab == null)
+            if (characterPrefab != null)
             {
-                Debug.LogError("Character prefab is not assigned");
+                characterInstance = Instantiate(characterPrefab, new Vector3(startCell.x, startCell.y, 0f), Quaternion.identity);
+            }
+            else
+            {
+                characterInstance = FindObjectOfType<CharacterController2D>();
+                if (characterInstance == null)
+                {
+                    Debug.LogWarning("Character prefab is not assigned; creating runtime character instance");
+                    var go = new GameObject("RuntimeCharacter");
+                    go.transform.position = new Vector3(startCell.x, startCell.y, 0f);
+                    characterInstance = go.AddComponent<CharacterController2D>();
+                }
+            }
+
+            if (characterInstance == null)
+            {
+                Debug.LogError("Unable to create or locate a character instance");
                 return;
             }
 
-            characterInstance = Instantiate(characterPrefab, new Vector3(startCell.x, startCell.y, 0f), Quaternion.identity);
+            characterInstance.transform.position = new Vector3(startCell.x, startCell.y, characterInstance.transform.position.z);
             characterInstance.Init(gridModel, startCell);
         }
 
