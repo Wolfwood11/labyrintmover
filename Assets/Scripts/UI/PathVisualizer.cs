@@ -17,14 +17,16 @@ namespace LabyrinthMover.UI
         [Header("Анимация")]
         [SerializeField] private float animationSpeed = 2f;
         [SerializeField] private bool showAnimation = true;
-        
+
         private LineRenderer lineRenderer;
         private List<Vector2Int> currentPath = new List<Vector2Int>();
         private bool isAnimating = false;
         private float animationProgress = 0f;
-        
+        private float gridScale = 1f;
+
         private void Awake()
         {
+            UpdateGridScale();
             SetupLineRenderer();
         }
         
@@ -52,6 +54,19 @@ namespace LabyrinthMover.UI
             lineRenderer.sortingOrder = 10; // Поверх других объектов
             lineRenderer.enabled = false;
         }
+
+        private void UpdateGridScale()
+        {
+            var gridConfig = FindFirstObjectByType<GridConfig>();
+            if (gridConfig != null)
+            {
+                gridScale = Mathf.Max(0.0001f, gridConfig.TileSize / 100f);
+            }
+            else
+            {
+                gridScale = 1f;
+            }
+        }
         
         /// <summary>
         /// Создает материал по умолчанию
@@ -78,11 +93,11 @@ namespace LabyrinthMover.UI
             
             // Создаем точки для LineRenderer
             var points = new Vector3[path.Count + 1];
-            points[0] = new Vector3(startPos.x, startPos.y, 0f);
-            
+            points[0] = GridToWorld(startPos);
+
             for (int i = 0; i < path.Count; i++)
             {
-                points[i + 1] = new Vector3(path[i].x, path[i].y, 0f);
+                points[i + 1] = GridToWorld(path[i]);
             }
             
             lineRenderer.positionCount = points.Length;
@@ -162,6 +177,11 @@ namespace LabyrinthMover.UI
                 lineRenderer.startWidth = width;
                 lineRenderer.endWidth = width;
             }
+        }
+
+        private Vector3 GridToWorld(Vector2Int gridPos)
+        {
+            return new Vector3(gridPos.x * gridScale, gridPos.y * gridScale, 0f);
         }
     }
 }

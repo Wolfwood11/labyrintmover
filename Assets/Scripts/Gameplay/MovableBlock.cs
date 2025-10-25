@@ -20,8 +20,22 @@ namespace LabyrinthMover.Gameplay
             get
             {
                 var p = transform.position;
-                return new Vector2Int(Mathf.RoundToInt(p.x), Mathf.RoundToInt(p.y));
+                float scale = GetGridScale();
+                if (Mathf.Approximately(scale, 0f))
+                {
+                    scale = 1f;
+                }
+
+                return new Vector2Int(
+                    Mathf.RoundToInt(p.x / scale),
+                    Mathf.RoundToInt(p.y / scale));
             }
+        }
+
+        private static float GetGridScale()
+        {
+            var gridConfig = Object.FindFirstObjectByType<GridConfig>();
+            return gridConfig != null ? gridConfig.TileSize / 100f : 1f;
         }
     }
 }

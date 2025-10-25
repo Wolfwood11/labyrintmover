@@ -25,6 +25,7 @@ namespace LabyrinthMover.Gameplay
         private float energyRemaining;
 
         private readonly Stack<MoveRecord> history = new Stack<MoveRecord>();
+        private float gridScale = 1f;
 
         public event Action<float, float> EnergyChanged;
         public event Action<int> OnMoveExecuted;
@@ -48,6 +49,16 @@ namespace LabyrinthMover.Gameplay
             energyRemaining = emax;
             history.Clear();
             RaiseEnergyChanged();
+
+            var gridConfig = FindFirstObjectByType<GridConfig>();
+            if (gridConfig != null)
+            {
+                gridScale = Mathf.Max(0.0001f, gridConfig.TileSize / 100f);
+            }
+            else
+            {
+                gridScale = 1f;
+            }
         }
 
         public PreviewResult PreviewSwipe(int blockId, Vector2Int dir)
@@ -450,8 +461,11 @@ namespace LabyrinthMover.Gameplay
                 if (visualBlock != null)
                 {
                     // Вычисляем новую позицию
-                    Vector3 newPosition = new Vector3(gridBlock.Rect.center.x, gridBlock.Rect.center.y, visualBlock.transform.position.z);
-                    
+                    Vector3 newPosition = new Vector3(
+                        gridBlock.Rect.x * gridScale,
+                        gridBlock.Rect.y * gridScale,
+                        visualBlock.transform.position.z);
+
                     // Обновляем позицию только если она действительно изменилась
                     if (Vector3.Distance(visualBlock.transform.position, newPosition) > 0.01f)
                     {

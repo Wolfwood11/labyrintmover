@@ -24,7 +24,8 @@ namespace LabyrinthMover.UI
         private MoveExecutor moveExecutor;
         private HudController hudController;
         private PathVisualizer pathVisualizer;
-        
+        private float gridScale = 1f;
+
         // Состояние перетягивания
         private bool isDragging = false;
         private int? selectedBlockId = null;
@@ -56,10 +57,16 @@ namespace LabyrinthMover.UI
                 gridModel = levelManager.GetGridModel();
                 moveExecutor = levelManager.GetComponent<MoveExecutor>();
             }
-            
+
+            var gridConfig = FindFirstObjectByType<GridConfig>();
+            if (gridConfig != null)
+            {
+                gridScale = Mathf.Max(0.0001f, gridConfig.TileSize / 100f);
+            }
+
             hudController = FindFirstObjectByType<HudController>();
             blockRenderer = GetComponent<SpriteRenderer>();
-            
+
             if (blockRenderer != null)
             {
                 originalColor = blockRenderer.color;
@@ -372,8 +379,16 @@ namespace LabyrinthMover.UI
         /// </summary>
         private Vector2Int ScreenToCell(Vector2 screenPosition)
         {
-            Vector3 worldPos = Camera.main.ScreenToWorldPoint(screenPosition);
-            return new Vector2Int(Mathf.RoundToInt(worldPos.x), Mathf.RoundToInt(worldPos.y));
+            var cam = Camera.main;
+            if (cam == null)
+            {
+                return Vector2Int.zero;
+            }
+
+            Vector3 worldPos = cam.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -cam.transform.position.z));
+            int cellX = Mathf.RoundToInt(worldPos.x / gridScale);
+            int cellY = Mathf.RoundToInt(worldPos.y / gridScale);
+            return new Vector2Int(cellX, cellY);
         }
         
         /// <summary>
@@ -396,7 +411,7 @@ namespace LabyrinthMover.UI
                 return Vector2Int.zero;
             }
             
-            return new Vector2Int(Mathf.RoundToInt(block.Rect.center.x), Mathf.RoundToInt(block.Rect.center.y));
+            return new Vector2Int(block.Rect.x, block.Rect.y);
         }
         
         /// <summary>
