@@ -11,7 +11,7 @@ namespace LabyrinthMover.Core
 
         public CellType[,] cells;
         public int?[,] blockIds;
-        public Dictionary<int, BlockRt> blocks = new Dictionary<int, BlockRt>();
+        public Dictionary<int, BlockRt> Blocks = new Dictionary<int, BlockRt>();
 
         public GridModel(int width, int height)
         {
@@ -33,6 +33,35 @@ namespace LabyrinthMover.Core
         {
             return x >= 0 && x < Width && y >= 0 && y < Height;
         }
+        
+        /// <summary>
+        /// Получает ID блока в указанной позиции
+        /// </summary>
+        public int? GetBlockIdAt(int x, int y)
+        {
+            if (!InBounds(x, y))
+            {
+                return null;
+            }
+            
+            return blockIds[x, y];
+        }
+        
+        /// <summary>
+        /// Очищает GridModel - удаляет все статические препятствия и блоки
+        /// </summary>
+        public void Clear()
+        {
+            for (int x = 0; x < Width; x++)
+            {
+                for (int y = 0; y < Height; y++)
+                {
+                    cells[x, y] = CellType.Empty;
+                    blockIds[x, y] = null;
+                }
+            }
+            Blocks.Clear();
+        }
 
         public void PlaceStatic(Vector2Int p)
         {
@@ -43,11 +72,29 @@ namespace LabyrinthMover.Core
 
             cells[p.x, p.y] = CellType.Static;
             blockIds[p.x, p.y] = null;
+            
+            // Логируем размещение блоков верхней границы
+            if (p.y == Height - 1)
+            {
+                Debug.Log($"🔲 PlaceStatic: Верхняя граница ({p.x}, {p.y}) - установлен CellType.Static");
+            }
+        }
+        
+        /// <summary>
+        /// Проверяет, является ли клетка статической
+        /// </summary>
+        public bool IsStatic(int x, int y)
+        {
+            if (!InBounds(x, y))
+            {
+                return false;
+            }
+            return cells[x, y] == CellType.Static;
         }
 
         public void AddBlock(BlockRt block)
         {
-            blocks[block.Id] = block;
+            Blocks[block.Id] = block;
             SetBlockArea(block.Rect, block.Id);
         }
 
@@ -70,6 +117,15 @@ namespace LabyrinthMover.Core
                     cells[x, y] = CellType.Empty;
                     blockIds[x, y] = null;
                 }
+            }
+        }
+
+        public void RemoveBlock(int blockId)
+        {
+            if (Blocks.TryGetValue(blockId, out var block))
+            {
+                RemoveBlockArea(block.Rect);
+                Blocks.Remove(blockId);
             }
         }
 
@@ -104,20 +160,23 @@ namespace LabyrinthMover.Core
         {
             if (!InBounds(pos.x, pos.y))
             {
+                Debug.Log($"GetBlockId: позиция ({pos.x}, {pos.y}) вне границ сетки {Width}x{Height}");
                 return null;
             }
 
-            return blockIds[pos.x, pos.y];
+            int? blockId = blockIds[pos.x, pos.y];
+            Debug.Log($"GetBlockId: позиция ({pos.x}, {pos.y}) -> blockId={blockId}");
+            return blockId;
         }
 
         public BlockRt GetBlock(int id)
         {
-            return blocks[id];
+            return Blocks[id];
         }
 
         public void UpdateBlock(BlockRt block)
         {
-            blocks[block.Id] = block;
+            Blocks[block.Id] = block;
         }
 
         public GridSnapshot CreateSnapshot()
@@ -132,7 +191,7 @@ namespace LabyrinthMover.Core
                 }
             }
 
-            foreach (var kv in blocks)
+            foreach (var kv in Blocks)
             {
                 snapshot.Blocks[kv.Key] = kv.Value;
             }
@@ -150,10 +209,10 @@ namespace LabyrinthMover.Core
             Array.Copy(snapshot.Cells, cells, snapshot.Cells.Length);
             Array.Copy(snapshot.BlockIds, blockIds, snapshot.BlockIds.Length);
 
-            blocks.Clear();
+            Blocks.Clear();
             foreach (var kv in snapshot.Blocks)
             {
-                blocks[kv.Key] = kv.Value;
+                Blocks[kv.Key] = kv.Value;
             }
         }
     }

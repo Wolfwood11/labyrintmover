@@ -68,7 +68,7 @@ namespace LabyrinthMover.UI
                 gameObject.AddComponent<GraphicRaycaster>();
             }
 
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();

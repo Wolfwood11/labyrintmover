@@ -55,9 +55,35 @@ namespace LabyrinthMover.UI
                 return;
             }
 
-            previewText.text = steps > 0
-                ? $"Steps: {steps}\nd: {d0}->{dEnd}\nCost: {cost:F2}"
-                : string.Empty;
+            if (steps > 0)
+            {
+                string hint = "";
+                if (dEnd > d0)
+                {
+                    hint = "\n💡 Подойди ближе — будет дешевле";
+                }
+                
+                previewText.text = $"🎯 Путь: {steps} шагов\n" +
+                                 $"📏 Расстояние: {d0}→{dEnd}\n" +
+                                 $"⚡ Стоимость: {cost:F2}{hint}";
+            }
+            else
+            {
+                previewText.text = string.Empty;
+            }
+        }
+        
+        /// <summary>
+        /// Показывает текстовое сообщение в превью
+        /// </summary>
+        public void ShowPreview(string message)
+        {
+            if (previewText == null)
+            {
+                return;
+            }
+
+            previewText.text = message;
         }
 
         public void ResetPreview()
@@ -66,6 +92,51 @@ namespace LabyrinthMover.UI
             {
                 previewText.text = string.Empty;
             }
+        }
+        
+        /// <summary>
+        /// Получает текущую энергию
+        /// </summary>
+        public int GetCurrentEnergy()
+        {
+            // Парсим энергию из текста или возвращаем значение по умолчанию
+            if (energyText != null && energyText.text.Contains("/"))
+            {
+                string[] parts = energyText.text.Split('/');
+                if (parts.Length >= 1 && int.TryParse(parts[0].Split(':')[1].Trim(), out int energy))
+                {
+                    return energy;
+                }
+            }
+            return 50; // Значение по умолчанию
+        }
+        
+        /// <summary>
+        /// Получает текущее количество ходов
+        /// </summary>
+        public int GetCurrentMoves()
+        {
+            // Пока что возвращаем значение по умолчанию
+            // В будущем можно добавить счетчик ходов
+            return 0;
+        }
+        
+        /// <summary>
+        /// Обновляет энергию
+        /// </summary>
+        public void UpdateEnergy(int energyCost)
+        {
+            // Здесь можно добавить логику обновления энергии
+            Debug.Log($"Обновление энергии: -{energyCost}");
+        }
+        
+        /// <summary>
+        /// Обновляет количество ходов
+        /// </summary>
+        public void UpdateMoves(int moves)
+        {
+            // Здесь можно добавить логику обновления ходов
+            Debug.Log($"Обновление ходов: +{moves}");
         }
 
         private void EnsureRuntimeUi()
@@ -90,7 +161,7 @@ namespace LabyrinthMover.UI
                 gameObject.AddComponent<GraphicRaycaster>();
             }
 
-            if (FindObjectOfType<EventSystem>() == null)
+            if (FindFirstObjectByType<EventSystem>() == null)
             {
                 var es = new GameObject("EventSystem");
                 es.AddComponent<EventSystem>();

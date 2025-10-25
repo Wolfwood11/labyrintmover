@@ -18,5 +18,9 @@ namespace LabyrinthMover.Core
 
         [Min(0f)]
         public float Emax = 40f;
+        
+        [Header("Визуальные настройки")]
+        [Min(8)]
+        public int TileSize = 64;
     }
 }

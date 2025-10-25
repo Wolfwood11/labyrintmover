@@ -17,7 +17,7 @@ namespace LabyrinthMover.Gameplay
     public class MoveExecutor : MonoBehaviour
     {
         private GridModel grid;
-        private CharacterController2D character;
+        private LabyrinthMover.Gameplay.PlayerController character;
         private float emax;
         private float ksize;
         private float kdist;
@@ -27,6 +27,7 @@ namespace LabyrinthMover.Gameplay
         private readonly Stack<MoveRecord> history = new Stack<MoveRecord>();
 
         public event Action<float, float> EnergyChanged;
+        public event Action<int> OnMoveExecuted;
 
         private struct MoveRecord
         {
@@ -37,7 +38,7 @@ namespace LabyrinthMover.Gameplay
         public float EnergyRemaining => energyRemaining;
         public float EnergyMax => emax;
 
-        public void Init(GridModel gridModel, CharacterController2D characterController, float emaxValue, float ksizeValue, float kdistValue)
+        public void Init(GridModel gridModel, LabyrinthMover.Gameplay.PlayerController characterController, float emaxValue, float ksizeValue, float kdistValue)
         {
             grid = gridModel ?? throw new ArgumentNullException(nameof(gridModel));
             character = characterController ?? throw new ArgumentNullException(nameof(characterController));
@@ -56,6 +57,17 @@ namespace LabyrinthMover.Gameplay
                 return default;
             }
 
+            // Сначала пробуем быстрое вычисление для простых случаев
+            if (grid.Blocks.TryGetValue(blockId, out var block))
+            {
+                var quickResult = TryQuickPreview(block, dir, character.GridPos);
+                if (quickResult.HasValue)
+                {
+                    return quickResult.Value;
+                }
+            }
+
+            // Если быстрое вычисление не подходит, используем полную симуляцию
             var snapshot = grid.CreateSnapshot();
             var sim = SimulateSwipe(snapshot, blockId, dir, character.GridPos);
             return new PreviewResult
@@ -68,22 +80,107 @@ namespace LabyrinthMover.Gameplay
             };
         }
 
+        private PreviewResult? TryQuickPreview(BlockRt block, Vector2Int dir, Vector2Int charPos)
+        {
+            // Проверяем, можно ли использовать быстрое вычисление
+            // (нет столкновений с другими блоками на пути)
+            var currentRect = block.Rect;
+            int steps = 0;
+            
+            while (true)
+            {
+                var nextRect = new RectInt(currentRect.x + dir.x, currentRect.y + dir.y, currentRect.width, currentRect.height);
+                if (!IsRectInBounds(grid, nextRect))
+                {
+                    break;
+                }
+
+                // Проверяем столкновения
+                bool blockedByStatic = false;
+                for (int x = nextRect.xMin; x < nextRect.xMax && !blockedByStatic; x++)
+                {
+                    for (int y = nextRect.yMin; y < nextRect.yMax; y++)
+                    {
+                        if (grid.cells[x, y] == CellType.Static)
+                        {
+                            blockedByStatic = true;
+                            break;
+                        }
+
+                        var id = grid.blockIds[x, y];
+                        if (id.HasValue && id.Value != block.Id)
+                        {
+                            // Есть столкновение с другим блоком - используем полную симуляцию
+                            return null;
+                        }
+                    }
+                }
+
+                if (blockedByStatic)
+                {
+                    break;
+                }
+
+                currentRect = nextRect;
+                steps++;
+            }
+
+            if (steps == 0)
+            {
+                return new PreviewResult
+                {
+                    steps = 0,
+                    cost = 0f,
+                    finalRect = block.Rect,
+                    startDistance = Energy.ManhattanToNearestCell(charPos, block.Rect),
+                    endDistance = Energy.ManhattanToNearestCell(charPos, block.Rect)
+                };
+            }
+
+            // Используем закрытую форму для быстрого вычисления
+            int S = Energy.GetArea(block.Rect);
+            int d0 = Energy.ManhattanToNearestCell(charPos, block.Rect);
+            int dEnd = Energy.ManhattanToNearestCell(charPos, currentRect);
+            bool towardsCharacter = Energy.IsTowardsCharacter(charPos, block.Rect, currentRect, dir);
+            
+            float cost = Energy.FastSwipeCost(S, steps, d0, towardsCharacter, ksize, kdist);
+
+            return new PreviewResult
+            {
+                steps = steps,
+                cost = cost,
+                finalRect = currentRect,
+                startDistance = d0,
+                endDistance = dEnd
+            };
+        }
+
         public float CommitSwipe(int blockId, Vector2Int dir)
         {
             if (grid == null || dir == Vector2Int.zero)
             {
+                Debug.Log($"CommitSwipe: grid={grid != null}, dir={dir}");
                 return 0f;
             }
 
+            Debug.Log($"CommitSwipe: блок {blockId}, направление {dir}");
+            
             var beforeSnapshot = grid.CreateSnapshot();
             var workingSnapshot = grid.CreateSnapshot();
             var sim = SimulateSwipe(workingSnapshot, blockId, dir, character.GridPos);
+            
+            Debug.Log($"CommitSwipe: симуляция завершена, steps={sim.steps}, cost={sim.cost}");
+            
             if (sim.steps == 0)
             {
+                Debug.Log("CommitSwipe: нет шагов, возвращаем 0");
                 return 0f;
             }
 
             grid.RestoreSnapshot(workingSnapshot);
+            
+            // Обновляем визуальные позиции блоков
+            UpdateVisualBlockPositions();
 
             float energyBefore = energyRemaining;
             energyRemaining = energyBefore - sim.cost;
@@ -95,6 +192,9 @@ namespace LabyrinthMover.Gameplay
             });
 
             RaiseEnergyChanged();
+            OnMoveExecuted?.Invoke(Mathf.RoundToInt(sim.cost));
+            
+            Debug.Log($"CommitSwipe: перетаскивание завершено, стоимость={sim.cost}, энергия={energyRemaining}/{emax}");
             return sim.cost;
         }
 
@@ -107,6 +207,10 @@ namespace LabyrinthMover.Gameplay
 
             var record = history.Pop();
             grid.RestoreSnapshot(record.Snapshot);
+            
+            // Обновляем визуальные позиции блоков
+            UpdateVisualBlockPositions();
+            
             energyRemaining = record.EnergyBefore;
             RaiseEnergyChanged();
         }
@@ -183,10 +287,14 @@ namespace LabyrinthMover.Gameplay
                         break;
                     }
 
+                    // Объединение блоков: создаем bounding box от объединенных прямоугольников
                     ClearRect(snapshot, touchedBlock.Rect);
                     snapshot.Blocks.Remove(touchedId.Value);
                     currentRect = BoundingBox(nextRect, touchedBlock.Rect);
                     block.Rect = currentRect;
+                    
+                    // Обновляем площадь блока после объединения
+                    // S_t может измениться на лету согласно ТЗ
                 }
                 else
                 {
@@ -194,7 +302,7 @@ namespace LabyrinthMover.Gameplay
                     block.Rect = currentRect;
                 }
 
-                int S = currentRect.width * currentRect.height;
+                int S = Energy.GetArea(currentRect);
                 int d = Energy.ManhattanToNearestCell(charPos, currentRect);
                 cost += Energy.StepCost(S, d, ksize, kdist);
                 steps++;
@@ -209,6 +317,11 @@ namespace LabyrinthMover.Gameplay
             FillRect(snapshot, currentRect, blockId);
 
             return result;
+        }
+
+        private static bool IsRectInBounds(GridModel grid, RectInt rect)
+        {
+            return rect.xMin >= 0 && rect.yMin >= 0 && rect.xMax <= grid.Width && rect.yMax <= grid.Height;
         }
 
         private static bool IsRectInBounds(GridSnapshot snapshot, RectInt rect)
@@ -317,6 +430,58 @@ namespace LabyrinthMover.Gameplay
             public RectInt finalRect;
             public int startDistance;
             public int endDistance;
+        }
+        
+        /// <summary>
+        /// Обновляет визуальные позиции блоков в сцене согласно GridModel
+        /// </summary>
+        private void UpdateVisualBlockPositions()
+        {
+            if (grid == null) return;
+            
+            // Обновляем только блоки, которые есть в GridModel
+            foreach (var kvp in grid.Blocks)
+            {
+                int blockId = kvp.Key;
+                var gridBlock = kvp.Value;
+                
+                // Находим визуальный блок по ID
+                var visualBlock = FindVisualBlockById(blockId);
+                if (visualBlock != null)
+                {
+                    // Вычисляем новую позицию
+                    Vector3 newPosition = new Vector3(gridBlock.Rect.center.x, gridBlock.Rect.center.y, visualBlock.transform.position.z);
+                    
+                    // Обновляем позицию только если она действительно изменилась
+                    if (Vector3.Distance(visualBlock.transform.position, newPosition) > 0.01f)
+                    {
+                        visualBlock.transform.position = newPosition;
+                        Debug.Log($"Обновлена позиция блока {blockId}: {visualBlock.transform.position}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"Визуальный блок {blockId} не найден в сцене");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Находит визуальный блок по ID
+        /// </summary>
+        private MovableBlock FindVisualBlockById(int blockId)
+        {
+            var movableBlocks = FindObjectsByType<MovableBlock>(FindObjectsSortMode.None);
+            
+            foreach (var block in movableBlocks)
+            {
+                if (block.GetInstanceID() == blockId)
+                {
+                    return block;
+                }
+            }
+            
+            return null;
         }
     }
 }

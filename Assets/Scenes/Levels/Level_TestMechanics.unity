@@ -1889,7 +1889,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd68da8119646ed4c94199aa7847decc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  swipeThreshold: 0.25
+  swipeThreshold: 0.1
 --- !u!1 &9000
 GameObject:
   m_ObjectHideFlags: 0
