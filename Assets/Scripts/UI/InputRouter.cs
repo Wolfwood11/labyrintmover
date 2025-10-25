@@ -28,6 +28,7 @@ namespace LabyrinthMover.UI
         private System.Action onResetRequested;
 
         private Camera mainCamera;
+        private float gridScale = 1f;
 
         private int? selectedBlockId;
         private Vector2 pointerDownScreen;
@@ -54,6 +55,16 @@ namespace LabyrinthMover.UI
             onResetRequested = resetCallback;
 
             mainCamera = Camera.main;
+
+            var gridConfig = FindFirstObjectByType<GridConfig>();
+            if (gridConfig != null)
+            {
+                gridScale = Mathf.Max(0.0001f, gridConfig.TileSize / 100f);
+            }
+            else
+            {
+                gridScale = 1f;
+            }
 
             if (hud != null)
             {
@@ -321,7 +332,9 @@ namespace LabyrinthMover.UI
                 ? mainCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -mainCamera.transform.position.z))
                 : Vector3.zero;
 
-            Vector2Int cellPos = new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
+            int cellX = Mathf.RoundToInt(world.x / gridScale);
+            int cellY = Mathf.RoundToInt(world.y / gridScale);
+            Vector2Int cellPos = new Vector2Int(cellX, cellY);
             Debug.Log($"ScreenToCell: screen=({screenPosition.x:F1}, {screenPosition.y:F1}) -> world=({world.x:F2}, {world.y:F2}) -> cell=({cellPos.x}, {cellPos.y})");
             return cellPos;
         }
@@ -433,8 +446,8 @@ namespace LabyrinthMover.UI
                 return Vector2Int.zero;
             }
 
-            Vector2Int currentCenter = new Vector2Int(Mathf.RoundToInt(block.Rect.center.x), Mathf.RoundToInt(block.Rect.center.y));
-            Vector2Int delta = targetCell - currentCenter;
+            var currentPos = new Vector2Int(block.Rect.x, block.Rect.y);
+            Vector2Int delta = targetCell - currentPos;
             
             // Определяем основное направление (горизонтальное или вертикальное)
             if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y))
